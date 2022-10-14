@@ -1,0 +1,99 @@
+// https://www.shadertoy.com/view/NdBGDz
+#pragma kernel CSMain
+#pragma multi_compile _ KEEP_DIRECT_BOUNCE
+
+#define PI 3.1415926
+
+RWTexture2D<float4> _IntegratedLUT;
+float4              _FalloffColor;
+float               _Resoultion;
+
+float3 SeparableSSS_Gaussian(float variance, float r, float3 FalloffColor)
+{
+    /**
+    * We use a falloff to modulate the shape of the profile. Big falloffs
+    * spreads the shape making it wider, while small falloffs make it
+    * narrower.
+    */
+    float3 rr = r / (0.001 + FalloffColor);
+
+    float3 Ret = exp((-(rr * rr)) / (2.0 * variance)) / (2.0 * PI * variance);
+
+    return Ret;
+}
+
+float3 DiffusionProfile(float r)
+{
+    /**
+    * We used the red channel of the original skin profile defined in
+    * [d'Eon07] for all three channels. We noticed it can be used for green
+    * and blue channels (scaled using the falloff parameter) without
+    * introducing noticeable differences and allowing for total control over
+    * the profile. For example, it allows to create blue SSS gradients, which
+    * could be useful in case of rendering blue creatures.
+    */
+    // first parameter is variance in mm^2
+    const float3 FalloffColor = _FalloffColor.rgb; // float3(1.0, 0.3, 0.2);
+
+    return float3(0.0, 0.0, 0.0)
+#ifdef KEEP_DIRECT_BOUNCE
+        + 0.233f * SeparableSSS_Gaussian(0.0064f, r, FalloffColor)  /* We consider this one to be directly bounced light, accounted by the strength parameter (see @STRENGTH) */
+#endif
+        + 0.100 * SeparableSSS_Gaussian(0.0484, r, FalloffColor)
+        + 0.118 * SeparableSSS_Gaussian(0.187, r, FalloffColor)
+        + 0.113 * SeparableSSS_Gaussian(0.567, r, FalloffColor)
+        + 0.358 * SeparableSSS_Gaussian(1.99, r, FalloffColor)
+        + 0.078 * SeparableSSS_Gaussian(7.41, r, FalloffColor);
+}
+
+#define A 0.15
+#define B 0.50
+#define C 0.10
+#define D 0.20
+#define E 0.02
+#define F 0.30
+#define W 11.2
+
+float3 Tonemap(float3 x)
+{
+    return ((x * ( A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - E/F;
+}
+
+// integrate SSS on 2D half ring
+float3 GenSkinLUT(float2 uv)
+{
+    float nol = uv.x;
+    float inv_r = uv.y;
+    float theta = acos(nol * 2.0 - 1.0);
+    float r = 1.0 / inv_r;
+
+    float3 scatteringFactor = float3(0.0, 0.0, 0.0);
+    float3 normalizationFactor = float3(0.0, 0.0, 0.0);
+    for (float x = -PI/2.0; x < PI/2.0; x+=PI * 0.001)
+    {
+        float dist = 2.0 * r * sin(x * 0.5);
+
+        scatteringFactor += max(0.0, cos(x + theta)) * DiffusionProfile(dist);
+
+        normalizationFactor += DiffusionProfile(dist);
+    }
+
+    float3 result = scatteringFactor / normalizationFactor;
+
+    float3 tonedResult = Tonemap(result * 12.0);
+    float3 whiteScale = 1.0 / Tonemap(float3(W, W, W));
+
+    tonedResult = tonedResult * whiteScale;
+
+    //tonedResult.x = pow(tonedResult.x, 1.0 / 2.2);
+    //tonedResult.y = pow(tonedResult.y, 1.0 / 2.2);
+    //tonedResult.z = pow(tonedResult.z, 1.0 / 2.2);
+
+    return result;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    _IntegratedLUT[id.xy] = float4(GenSkinLUT(id.xy / _Resoultion).rgb, 1);
+}
