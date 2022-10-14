@@ -10,4 +10,4 @@ Spherical Gaussian Subsurface<br>
 https://therealmjp.github.io/posts/sss-sg/
 
 Comparison<br>
-![Image](https://github.com/codewings/.IMAGES/blob/master/CurveApprox%26LUT%20Pre-IntegratedSkin.png)
+![Image](https://github.com/codewings/PreIntegrated-Skin/blob/master/screenshot.png)
