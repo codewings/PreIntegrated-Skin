@@ -49,14 +49,14 @@ half3 FitWithLUT(half NdotL, half Curvature)
     return saturate(SAMPLE_TEXTURE2D(_ScatterLUT, sampler_ScatterLUT, half2(NdotL, Curvature)).rgb);
 }
 
-half3 PreIntegratedRadianceWithLUT(half3 shadeNormal, half3 blurredNormal, half3 L, half attenuation, half curvature)
+half3 PreIntegratedRadianceWithLUT(half3 shadeNormal, half3 blurredNormal, half3 L, half shadowing, half curvature)
 {
 #if PREINTEGRATED_HIGH_FIDELITY_MODE == 0
     half3 N = normalize(lerp(blurredNormal, shadeNormal, 0.3)); // not physcial correct
     half NdotL = dot(N, L);
     half wrappedNdotL = max(0, (NdotL + 0.5) / (1 + 0.5));
 
-    return PREINTEGRATED_FIT_FN(attenuation * wrappedNdotL, curvature);
+    return PREINTEGRATED_FIT_FN(wrappedNdotL * shadowing, curvature);
 #else
     half  blurredNdotL = dot(blurredNormal, L);
     half3 normalSmoothFactor = saturate(1.0 - blurredNdotL);
@@ -68,9 +68,9 @@ half3 PreIntegratedRadianceWithLUT(half3 shadeNormal, half3 blurredNormal, half3
 
     shadeNdotL = max(0, (shadeNdotL + 0.5) / (1 + 0.5));
     return half3(
-        PREINTEGRATED_FIT_FN(attenuation * shadeNdotL.r, curvature).r,
-        PREINTEGRATED_FIT_FN(attenuation * shadeNdotL.g, curvature).g,
-        PREINTEGRATED_FIT_FN(attenuation * shadeNdotL.b, curvature).b
+        PREINTEGRATED_FIT_FN(shadowing * shadeNdotL.r, curvature).r,
+        PREINTEGRATED_FIT_FN(shadowing * shadeNdotL.g, curvature).g,
+        PREINTEGRATED_FIT_FN(shadowing * shadeNdotL.b, curvature).b
     );
 #endif
 }

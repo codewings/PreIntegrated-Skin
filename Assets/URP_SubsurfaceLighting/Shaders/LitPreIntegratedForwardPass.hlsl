@@ -153,9 +153,9 @@ Varyings LitPassVertex(Attributes input)
 half3 LightingPhysicallyBasedPreIntegrated(BRDFData brdfData, BRDFData brdfDataClearCoat,
     half3 lightColor, half3 lightDirectionWS, half lightAttenuation,
     half3 normalWS, half3 viewDirectionWS,
-    half clearCoatMask, bool specularHighlightsOff, half curvature, half3 blurredNormalWS)
+    half clearCoatMask, bool specularHighlightsOff, half curvature, half3 blurredNormalWS, half shadowing)
 {
-    half3 radiance = lightColor * PreIntegratedRadianceWithLUT(normalWS, blurredNormalWS, lightDirectionWS, lightAttenuation, curvature);
+    half3 radiance = lightColor * PreIntegratedRadianceWithLUT(normalWS, blurredNormalWS, lightDirectionWS, shadowing, curvature) * lightAttenuation;
 
     half3 brdf = brdfData.diffuse;
 #ifndef _SPECULARHIGHLIGHTS_OFF
@@ -228,7 +228,7 @@ half4 UniversalFragmentPreIntegratedPBR(InputData inputData, SurfaceData surface
     color += LightingPhysicallyBasedPreIntegrated(brdfData, brdfDataClearCoat,
                                      mainLight.color, mainLight.direction, mainLight.distanceAttenuation * mainLight.shadowAttenuation,
                                      inputData.normalWS, inputData.viewDirectionWS,
-                                     surfaceData.clearCoatMask, specularHighlightsOff, curvature, blurredNormalWS);
+                                     surfaceData.clearCoatMask, specularHighlightsOff, curvature, blurredNormalWS, mainLight.shadowAttenuation);
 
 #ifdef _ADDITIONAL_LIGHTS
     uint pixelLightCount = GetAdditionalLightsCount();
@@ -241,7 +241,7 @@ half4 UniversalFragmentPreIntegratedPBR(InputData inputData, SurfaceData surface
         color += LightingPhysicallyBasedPreIntegrated(brdfData, brdfDataClearCoat,
                                          light.color, light.direction, light.distanceAttenuation * light.shadowAttenuation,
                                          inputData.normalWS, inputData.viewDirectionWS,
-                                         surfaceData.clearCoatMask, specularHighlightsOff, curvature, blurredNormalWS);
+                                         surfaceData.clearCoatMask, specularHighlightsOff, curvature, blurredNormalWS, light.shadowAttenuation);
     }
 #endif
 
